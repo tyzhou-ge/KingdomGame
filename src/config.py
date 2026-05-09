@@ -24,3 +24,11 @@ PLAYER_COLORS = {
     4: (144, 238, 144),  # 柔和绿 (Pastel Green)
     5: (221, 160, 221),  # 柔和紫 (Pastel Purple)
 }
+
+# 视觉效果常量
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
+CELL_SIZE = 50
+GRID_COLOR = (200, 200, 200) # 浅灰色网格
+BACKGROUND_COLOR = (255, 255, 255) # 白色背景
+CAPITAL_BORDER_COLOR = (255, 215, 0) # 金色
