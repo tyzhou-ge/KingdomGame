@@ -80,3 +80,15 @@ class Renderer:
     def quit(self):
         """Quits pygame."""
         pygame.quit()
+
+    def highlight_tile(self, x: int, y: int, flip_display: bool = False):
+        """Draws a highlight border around a specific tile."""
+        rect = pygame.Rect(
+            self.offset_x + x * CELL_SIZE,
+            self.offset_y + y * CELL_SIZE,
+            CELL_SIZE,
+            CELL_SIZE
+        )
+        pygame.draw.rect(self.screen, (255, 255, 0), rect, 4) # Yellow highlight
+        if flip_display:
+            pygame.display.flip()
