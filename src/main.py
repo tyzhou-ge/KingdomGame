@@ -37,12 +37,17 @@ def get_human_actions(renderer: Renderer, game_state, player_id):
                     sys.exit()
                 if event.type == pygame.KEYDOWN:
                     direction = None
-                    if event.key == pygame.K_w: direction = "up"
-                    elif event.key == pygame.K_s: direction = "down"
-                    elif event.key == pygame.K_a: direction = "left"
-                    elif event.key == pygame.K_d: direction = "right"
+                    
+                    # --- DEBUG PRINTS to see what Pygame receives ---
+                    print(f"DEBUG: event.key={event.key}, key_name='{pygame.key.name(event.key)}', event.unicode='{event.unicode}'")
+                    
+                    # Use arrow keys for movement, fall back to WASD for compatibility
+                    if event.key == pygame.K_UP or event.key == pygame.K_w: direction = "up"
+                    elif event.key == pygame.K_DOWN or event.key == pygame.K_s: direction = "down"
+                    elif event.key == pygame.K_LEFT or event.key == pygame.K_a: direction = "left"
+                    elif event.key == pygame.K_RIGHT or event.key == pygame.K_d: direction = "right"
                     elif event.key == pygame.K_SPACE: direction = "stay"
-                    elif event.key == pygame.K_q: # Undo last action
+                    elif event.key == pygame.K_LSHIFT or event.key == pygame.K_q: # Undo last action
                         if history:
                             last_coord, _ = history.pop()
                             del actions[last_coord]
