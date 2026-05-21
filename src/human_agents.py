@@ -27,7 +27,7 @@ def get_detailed_actions(renderer: Renderer, game_state, player_id):
         tile = my_tiles[tile_index]
         x, y = tile.x, tile.y
         
-        renderer.draw(game_state)
+        renderer.draw(game_state, actions)
         renderer.highlight_tile(x, y, flip_display=True)
 
         action_made = False

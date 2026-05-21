@@ -1,134 +1,110 @@
-# 分步骤实现规划：KingdomGame
+# 分步骤实现规划：KingdomGame (v2.0)
 
-本文档将整个游戏的开发过程分解为四个清晰的、循序渐进的阶段。每个阶段都有明确的目标和可交付的成果，旨在让一个AI编程助手能够理解并逐步完成开发。
-
----
-
-### **第一阶段：核心引擎与数据结构 (无图形界面)**
-
-**目标：** 搭建游戏的核心逻辑，使其可以在后台独立运行和测试。这是整个项目最关键的地基。
-
-**步骤：**
-
-1.  **环境搭建**
-    *   确保已安装 Python。
-    *   通过 `pip install pygame` 安装 Pygame 库。
-
-2.  **创建项目结构**
-    *   创建主文件夹 `KingdomGame`。
-    *   在其中创建 `src` 文件夹用于存放源代码。
-    *   在 `src` 中创建以下文件：
-        *   `config.py`: 用于存放 `algorithm.md` 中定义的所有游戏常量。
-        *   `models.py`: 用于定义 `Tile`, `Player`, `GameState` 等核心数据类。
-        *   `engine.py`: 用于实现游戏主循环和所有核心逻辑。
-        *   `agents.py`: 用于定义智能体基类和各种AI实现。
-        *   `main_text.py`: 作为本阶段的测试入口。
-
-3.  **实现核心数据结构 (`models.py`)**
-    *   根据 `algorithm.md` 中的定义，完整实现 `Tile`, `Player`, 和 `GameState` 类。
-    *   `Tile` 类中的 `armies` 属性使用列表（List）作为队列实现。
-
-4.  **实现游戏引擎 (`engine.py`)**
-    *   创建 `GameEngine` 类。
-    *   **`__init__`**:
-        *   初始化 `GameState`。
-        *   实现 `algorithm.md` 中定义的**首都生成算法**，为5个玩家分配首都和初始领土。
-    *   **`run_turn()`**: 实现一个完整游戏回合的逻辑。此方法将按顺序调用以下私有方法：
-        1.  `_generate_resources()`: 在每个玩家的领土上产出新兵。
-        2.  `_get_player_decisions()`: 从每个玩家的 `agent` 获取决策指令字典。
-        3.  `_execute_moves()`: 根据指令，计算所有兵力的最终目的地。
-        4.  `_resolve_combats()`: 在发生冲突的格子上，调用**战斗公式**进行结算。
-        5.  `_apply_attrition()`: 调用**兵力衰老与后勤压力算法**，更新所有兵力的年龄并移除到期单位。
-        6.  `_check_game_over()`: 检查是否有首都易主，更新玩家失败状态，并判断游戏是否结束。
-
-5.  **实现基础智能体 (`agents.py`)**
-    *   定义一个抽象基类 `BaseAgent`，包含一个抽象方法 `get_actions(self, game_state, player_id)`，其返回类型必须是 `algorithm.md` 中定义的指令字典。
-    *   实现一个 `RandomAgent(BaseAgent)`，它会为自己控制的每个格子随机选择一个合法的移动方向（up, down, left, right, stay）。
-
-6.  **创建文本测试入口 (`main_text.py`)**
-    *   创建一个主函数。
-    *   初始化 `GameEngine`，并为5个玩家分配 `RandomAgent`。
-    *   进入一个 `while` 循环，只要游戏没有结束，就持续调用 `engine.run_turn()`。
-    *   在每回合结束后，从 `engine.game_state` 中读取地图数据，并在**终端**中打印出地图的势力归属和每个格子的总兵力。
-    *   **此阶段完成的标志**：能够成功运行 `main_text.py`，并在终端看到回合数、势力范围和兵力随着游戏的进行而动态变化。
+本文档将游戏升级的开发过程分解为三个阶段，旨在让一个AI编程助手能够理解并逐步完成所有新功能的开发。
 
 ---
 
-### **第二阶段：Pygame基础可视化**
+### **第一阶段：视觉与UI/UX增强**
 
-**目标：** 将游戏状态用图形化方式渲染出来，实现动态沙盘的可视化。
+**目标：** 丰富游戏画面的信息量，提供更直观的视觉反馈。
 
 **步骤：**
 
-1.  **创建视图模块 (`view.py`)**
-    *   创建 `Renderer` 类。
-    *   在 `config.py` 中定义5个玩家的柔和色系RGB值，以及金色、背景色等。
-    *   **`__init__`**: 初始化 Pygame 窗口、字体等。
-    *   **`draw(self, game_state)`**: 主渲染函数，它会调用以下方法：
-        *   `_draw_grid()`: 绘制地图网格线。
-        *   `_draw_tiles(game_state)`: 遍历所有格子，根据 `tile.owner` 填充背景色，并根据 `tile.is_capital` 绘制金色边框。
-        *   `_draw_armies(game_state)`: 在每个格子上渲染总兵力数字。
-        *   `_draw_ui(game_state)`: 在屏幕边缘显示当前回合数等信息。
+1.  **修改数据结构 (`models.py`)**
+    *   在 `Tile` 类中增加 `last_turn_battle_size: int = 0` 属性，用于记录战斗规模。
+    *   在 `Player` 类中增加 `last_actions: dict = {}` 属性，用于存储上一回合的指令。
 
-2.  **创建Pygame主入口 (`main.py`)**
-    *   这是新的主程序入口。
-    *   初始化 Pygame, `GameEngine`, 和 `Renderer`。
-    *   创建一个主 `while` 循环，处理 Pygame 事件（如 `QUIT`）。
-    *   在循环中：
-        *   调用 `engine.run_turn()` 推进一回合游戏逻辑。
-        *   调用 `renderer.draw(engine.game_state)` 将最新状态绘制到屏幕。
-        *   调用 `pygame.display.flip()` 更新屏幕。
-        *   使用 `pygame.time.Clock().tick(1)` 来控制游戏速度，例如每秒1回合。
+2.  **修改游戏引擎 (`engine.py`)**
+    *   在 `_apply_attrition` 方法的开始处，添加重置所有格子 `last_turn_battle_size` 为0的逻辑。
+    *   在 `_resolve_combat` 方法中，计算战斗双方的总兵力，并将其存入对应格子的 `last_turn_battle_size` 属性。
+    *   在 `_get_player_decisions` 之后，将返回的 `all_actions` 存储到对应玩家的 `last_actions` 属性中。
 
-*   **此阶段完成的标志**：运行 `main.py`，可以看到一个图形化窗口，其中地图的颜色和兵力数字随着时间自动变化。
+3.  **增强渲染器 (`view.py`)**
+    *   **实现颜色深度**：
+        *   在 `_draw_tiles` 方法中，对于有归属的格子，根据 `algorithm.md` 中定义的**格子颜色深度算法**计算平均兵力年龄，并调整填充颜色。
+    *   **实现大规模战斗高亮**：
+        *   在 `_draw_tiles` 方法中，增加一个逻辑：如果一个格子的 `tile.last_turn_battle_size > LARGE_BATTLE_THRESHOLD`，则为其绘制一个红色的边框。
+    *   **实现指令箭头绘制**：
+        *   创建一个新方法 `_draw_action_arrows(self, actions: dict)`。
+        *   此方法接收一个指令字典，遍历其中的坐标和方向，在对应的格子上绘制一个代表方向的小箭头（或三角形）。
+        *   在 `get_human_actions` 函数的循环中，每次接收到新指令后，都调用此方法来实时更新屏幕上的箭头。
 
 ---
 
-### **第三阶段：交互与更复杂的智能体**
+### **第二阶段：新操控模式与高级AI**
 
-**目标：** 让游戏变得可以由人类玩，并提升AI的挑战性。
+**目标：** 增加新的人机交互方式，并创建一个更具挑战性的AI对手。
 
 **步骤：**
 
-1.  **实现人类智能体 (`agents.py`)**
-    *   创建 `HumanAgent(BaseAgent)`。
-    *   其 `get_actions` 方法将与主循环的事件处理部分交互。它需要一个机制来接收来自主循环的键盘输入。
+1.  **实现新的人类操控模式 (`main.py`)**
+    *   在 `config.py` 中添加 `HUMAN_INPUT_MODE` 常量。
+    *   重构 `get_human_actions` 函数，使其能够根据 `HUMAN_INPUT_MODE` 的值在两种模式间切换。
+    *   **`FREE_ROAM` 模式逻辑**：
+        *   决策开始时，高亮首都。
+        *   在一个 `while True` 循环中监听键盘事件。
+        *   如果按下 `w,a,s,d,space`，则更新当前高亮格子的指令。
+        *   如果按下**方向箭头键**，则计算目标坐标，检查其是否属于当前玩家。如果合法，则更新高亮格子的坐标。
+        *   如果按下 `Enter`，则跳出循环，决策结束。
+        *   在函数返回前，处理**孤岛地块**的逻辑：遍历所有己方领土，找到那些无法从首都到达的格子，并为它们生成随机指令。
 
-2.  **修改主循环以支持人类玩家 (`main.py`)**
-    *   在主 `while` 循环中，当轮到人类玩家决策时，暂停自动回合推进。
-    *   实现 `algorithm.md` 中定义的**人类交互流程**：
-        *   按顺序遍历人类玩家的领土，在 `Renderer` 中实现一个 `highlight_tile` 方法来高亮当前等待指令的格子。
-        *   监听键盘事件 (`KEYDOWN`)。如果按下 `w, a, s, d, space`，则记录指令并高亮下一个格子。
-        *   如果按下 `q`，则回退到上一个格子。
-        *   当所有格子都获得指令后，将完整的指令字典发送给 `HumanAgent`，然后恢复自动回合推进。
+2.  **实现指令继承 (`main.py`)**
+    *   在 `get_human_actions` 函数的开头，将 `player.last_actions` 深拷贝一份作为本回合指令的初始值。这样，所有格子都会有默认的上回合指令。
 
-3.  **实现更高级的AI (`agents.py`)**
-    *   创建 `GreedyAgent(BaseAgent)`: 优先攻击能打得过的最弱的敌人。
-    *   创建 `DefensiveAgent(BaseAgent)`: 优先将兵力调往与敌人接壤的前线或首都附近。
+3.  **实现 `StrategicAgent` (`agents.py`)**
+    *   创建一个新类 `StrategicAgent(BaseAgent)`。
+    *   在其 `get_actions` 方法中，完整实现 `algorithm.md` 中为其定义的复杂决策逻辑，包括：
+        *   和平扩张逻辑。
+        *   首都圈绝对防御逻辑。
+        *   常规边境攻防逻辑。
+        *   “斩首行动”触发与执行逻辑。
+    *   这需要一些辅助函数，如 `find_shortest_path` (可使用A*或BFS算法)。
 
-*   **此阶段完成的标志**：可以启动一场包含人类玩家和不同AI的对局，并能通过键盘完成操作。
+4.  **更新主函数以使用新AI (`main.py`)**
+    *   在 `main` 函数的玩家设置部分，将其中一个AI替换为新的 `StrategicAgent`。
 
 ---
 
-### **第四阶段：打磨与扩展**
+### **第三阶段：局域网联机功能**
 
-**目标：** 优化游戏体验，并探索更前沿的AI实现。
+**目标：** 实现基于WebSockets的C/S架构，让多名玩家可以联机对战。
 
 **步骤：**
 
-1.  **优化UI/UX (`view.py`)**
-    *   在界面上增加一个永久的信息面板，显示各玩家的领土数、总兵力等排名信息。
-    *   为兵力移动添加简单的过渡动画（例如，一个代表兵团的小圆点从一个格子移动到另一个格子）。
+1.  **安装依赖**
+    *   `pip install websockets`
+    *   `pip install asyncio`
 
-2.  **实现LLM智能体 (可选，`agents.py`)**
-    *   创建 `LLMAgent(BaseAgent)`。
-    *   其 `get_actions` 方法需要：
-        1.  实现一个 `_serialize_state(game_state, player_id)` 方法，将游戏状态转换成对LLM友好的JSON或文本格式。
-        2.  设计一个优秀的Prompt模板，包含规则、当前状态和期望的输出格式。
-        3.  使用 `requests` 或相关库调用一个外部LLM的API。
-        4.  编写健壮的解析逻辑，处理LLM可能返回的非标准格式，并将其转换为游戏指令字典。
+2.  **创建服务器 (`server.py`)**
+    *   导入 `asyncio`, `websockets`, `pickle`。
+    *   初始化 `GameEngine`。
+    *   创建一个 `main` 函数作为服务器主入口。
+    *   **`handler` 函数 (异步)**：
+        *   作为每个客户端连接的处理函数。
+        *   在一个全局变量（如列表 `clients`）中注册新的连接。
+        *   进入一个循环，等待从客户端接收消息（即指令字典）。
+        *   收到指令后，将其存入一个全局的指令缓存中。
+    *   **游戏主循环 (异步)**：
+        *   在 `main` 函数中，首先等待直到 `len(clients) == NUM_PLAYERS`。
+        *   游戏开始后，进入一个 `while not game_over` 循环。
+        *   **广播阶段**：将当前的 `GameState` 序列化（`pickle.dumps`）后，遍历 `clients` 列表，发送给所有客户端。
+        *   **等待决策**：等待，直到从所有存活的客户端都收到了指令。
+        *   **执行回合**：在服务器的 `GameEngine` 上执行收到的所有指令。
+        *   循环往复。
 
-3.  **平衡性调整 (`config.py`)**
-    *   通过大量的人机和AI对战，反复微调 `BASE_LIFESPAN`, `SUPPLY_LIMIT`, 战斗随机因子等参数，以达到最佳游戏体验。
+3.  **创建客户端 (`client.py`)**
+    *   导入 `pygame`, `asyncio`, `websockets`, `pickle`。
+    *   客户端的主 `main` 函数现在也必须是异步的。
+    *   **`game_loop` 函数 (异步)**：
+        *   连接到服务器。
+        *   进入一个 `while` 循环。
+        *   **接收状态**：`await websocket.recv()`，等待从服务器接收新的 `GameState`，并用 `pickle.loads` 反序列化。
+        *   **渲染**：使用 `renderer.draw()` 显示收到的新状态。
+        *   **决策**：检查当前轮到的玩家是否是本客户端的玩家。如果是，则调用 `get_human_actions` 或AI的 `get_actions` 来获取指令。
+        *   **发送指令**：将获取到的指令字典序列化后，通过 `await websocket.send()` 发送给服务器。
+        *   Pygame的事件处理需要被整合进这个异步循环中。
 
-*   **最终成果**：一个功能完整、可玩性强、具有良好可视化效果，并支持多种AI对手的策略战棋游戏。
+4.  **代码重构**
+    *   `main.py` 的大部分逻辑将被迁移到 `client.py` 中。
+    *   需要一个简单的方式让玩家在启动 `client.py` 时输入服务器的IP地址。
+

@@ -44,7 +44,7 @@ def main():
                 if isinstance(player.agent, HumanAgent):
                     # Special handling for human player
                     print(f"Waiting for Player {player.id}'s input...")
-                    human_actions = get_human_actions(renderer, engine.game_state, player.id, mode = 'uniform') # mode can be determined inside get_human_actions
+                    human_actions = get_human_actions(renderer, engine.game_state, player.id, mode = 'detailed') # mode can be determined inside get_human_actions
                     print(f"Player {player.id}'s input received.")
                     all_actions[player.id] = human_actions
                 else:
@@ -62,7 +62,7 @@ def main():
 
 
         # Rendering
-        renderer.draw(engine.game_state)
+        renderer.draw(engine.game_state, all_actions)
 
         # Control game speed
         pygame.time.delay(500) # Pause for 500ms after AI turns

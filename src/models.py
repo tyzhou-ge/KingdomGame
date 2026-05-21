@@ -14,6 +14,7 @@ class Tile:
         # armies[i] is the number of armies with age i
         self.armies: list[int] = [0] * BASE_LIFESPAN
         self.is_capital: bool = False
+        self.last_turn_battle_size: int = 0
 
     def get_total_armies(self) -> int:
         """Returns the total number of armies on this tile."""
@@ -28,6 +29,7 @@ class Player:
         self.agent = agent
         self.capital_pos: tuple[int, int] = (-1, -1)
         self.is_defeated: bool = False
+        self.last_actions: dict = {}
 
 class GameState:
     """Contains the entire state of the game at a point in time."""

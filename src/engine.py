@@ -75,7 +75,9 @@ class GameEngine:
         all_actions = {}
         for player in self.game_state.players:
             if not player.is_defeated:
-                all_actions[player.id] = player.agent.get_actions(self.game_state, player.id)
+                actions = player.agent.get_actions(self.game_state, player.id)
+                all_actions[player.id] = actions
+                player.last_actions = actions # Store actions for the next turn
         return all_actions
 
     def _execute_moves_and_resolve_combats(self, all_actions: dict[int, dict[str, str]]):
@@ -146,6 +148,9 @@ class GameEngine:
         if owner_id in merged_incoming: # Reinforcements for defender
             defender_force += sum(merged_incoming[owner_id])
 
+        # Record battle size
+        dest_tile.last_turn_battle_size = total_attacker_force + defender_force
+
         # Apply random factor and rounding
         a_eff = math.ceil(total_attacker_force * random.uniform(0.7, 1.0))
         d_eff = math.ceil(defender_force * random.uniform(0.5, 1.0))
@@ -190,6 +195,7 @@ class GameEngine:
         """Applies aging and supply limit penalties to all armies."""
         for row in self.game_state.map:
             for tile in row:
+                tile.last_turn_battle_size = 0
                 total_armies = tile.get_total_armies()
                 aging_speed = 1
                 if total_armies > SUPPLY_LIMIT:

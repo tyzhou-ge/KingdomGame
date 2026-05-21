@@ -2,7 +2,7 @@ import pygame
 from models import GameState
 from config import (
     SCREEN_WIDTH, SCREEN_HEIGHT, CELL_SIZE, GRID_COLOR, BACKGROUND_COLOR,
-    CAPITAL_BORDER_COLOR, MAP_WIDTH, MAP_HEIGHT
+    CAPITAL_BORDER_COLOR, MAP_WIDTH, MAP_HEIGHT, LARGE_BATTLE_THRESHOLD, BASE_LIFESPAN
 )
 
 class Renderer:
@@ -21,12 +21,14 @@ class Renderer:
         self.offset_x = (SCREEN_WIDTH - self.grid_width) // 2
         self.offset_y = (SCREEN_HEIGHT - self.grid_height) // 2
 
-    def draw(self, game_state: GameState):
+    def draw(self, game_state: GameState, current_actions: dict = None):
         """Draws the entire game state to the screen."""
         self.screen.fill(BACKGROUND_COLOR)
         self._draw_tiles(game_state)
         self._draw_grid()
         self._draw_armies(game_state)
+        if current_actions:
+            self._draw_action_arrows(current_actions)
         self._draw_ui(game_state)
         pygame.display.flip()
 
@@ -52,10 +54,72 @@ class Renderer:
                     CELL_SIZE
                 )
                 if tile.owner:
-                    pygame.draw.rect(self.screen, tile.owner.color, rect)
-                
+                    # Color depth based on army age
+                    total_armies = tile.get_total_armies()
+                    if total_armies > 0:
+                        avg_age = sum(age * count for age, count in enumerate(tile.armies)) / total_armies
+                        factor = 1 - (avg_age / BASE_LIFESPAN) * 0.6
+                        color = tuple(max(0, min(255, int(c * factor))) for c in tile.owner.color)
+                        pygame.draw.rect(self.screen, color, rect)
+                    else:
+                        pygame.draw.rect(self.screen, tile.owner.color, rect)
+
                 if tile.is_capital:
                     pygame.draw.rect(self.screen, CAPITAL_BORDER_COLOR, rect, 3) # 3 is border width
+                
+                # Highlight large battles
+                if tile.last_turn_battle_size > LARGE_BATTLE_THRESHOLD:
+                    pygame.draw.rect(self.screen, (255, 0, 0), rect, 2) # Red border for large battles
+
+    def _draw_action_arrows(self, all_actions: dict):
+        """Draws arrows on tiles to indicate the planned actions."""
+        actions_to_draw = {}
+        # The dictionary can be nested {player_id: actions} or flat {coord: dir}.
+        # We flatten it to handle both cases.
+        first_key = next(iter(all_actions), None)
+        if isinstance(first_key, int):
+            # Nested dict: {player_id: {coord: dir}}
+            for player_actions in all_actions.values():
+                actions_to_draw.update(player_actions)
+        else:
+            # Flat dict: {coord: dir}
+            actions_to_draw = all_actions
+
+        for coord_str, direction in actions_to_draw.items():
+            if not isinstance(coord_str, str): continue # Skip if key is not a string coordinate
+            x, y = map(int, coord_str.split(','))
+            center_x = self.offset_x + x * CELL_SIZE + CELL_SIZE // 2
+            center_y = self.offset_y + y * CELL_SIZE + CELL_SIZE // 2
+            
+            if direction == 'stay':
+                # Draw a small circle for 'stay'
+                pygame.draw.circle(self.screen, (0,0,0), (center_x, center_y), 5)
+                continue
+
+            # Points for an arrow triangle
+            arrow_length = CELL_SIZE // 4
+            arrow_width = CELL_SIZE // 6
+            
+            if direction == 'up':
+                p1 = (center_x, center_y - arrow_length)
+                p2 = (center_x - arrow_width, center_y)
+                p3 = (center_x + arrow_width, center_y)
+            elif direction == 'down':
+                p1 = (center_x, center_y + arrow_length)
+                p2 = (center_x - arrow_width, center_y)
+                p3 = (center_x + arrow_width, center_y)
+            elif direction == 'left':
+                p1 = (center_x - arrow_length, center_y)
+                p2 = (center_x, center_y - arrow_width)
+                p3 = (center_x, center_y + arrow_width)
+            elif direction == 'right':
+                p1 = (center_x + arrow_length, center_y)
+                p2 = (center_x, center_y - arrow_width)
+                p3 = (center_x, center_y + arrow_width)
+            else:
+                continue
+                
+            pygame.draw.polygon(self.screen, (0, 0, 0), [p1, p2, p3]) # Black arrow
 
     def _draw_armies(self, game_state: GameState):
         """Draws the army counts on each tile."""
