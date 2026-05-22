@@ -4,6 +4,106 @@ import copy
 from view import Renderer
 from models import GameState, Player 
 
+
+def get_free_roam_actions(renderer: Renderer, game_state: GameState, player_id: int, initial_actions: dict):
+    """
+    FREE_ROAM模式详细逻辑：
+
+    1. 决策开始时，高亮玩家的首都格子。
+    2. 玩家可以通过方向键（↑↓←→）在己方领土格子之间移动高亮框：
+        - 只有目标格子属于自己时，才允许移动高亮框，否则高亮框不动。
+    3. 玩家可以使用 w、a、s、d、space 键为当前高亮格子设置行军方向：
+        - w ：设置为“up”
+        - s ：设置为“down”
+        - a ：设置为“left”
+        - d ：设置为“right”
+        - space：设置为“stay”
+    4. 玩家可以随时按 Enter 键结束本回合的决策。
+    5. 在决策结束时：
+        - 所有未被手动指定的己方格子，自动继承上一回合的指令（即 initial_actions 中的默认值）。
+        - 对于那些从首都无法通过己方领土连通的“孤岛”地块，如果玩家没有手动为它们指定方向，则为它们分配一个随机方向（up/down/left/right/stay）。
+    6. 整个过程中，每次有操作都应实时刷新渲染（高亮和箭头）。
+    7. 返回值为所有己方格子的指令字典。
+    """
+    import random
+    player = next((p for p in game_state.players if p.id == player_id), None)
+    if not player:
+        return {}
+    # 1. 获取己方所有格子
+    my_tiles = []
+    tile_map = {}
+    for y, row in enumerate(game_state.map):
+        for x, tile in enumerate(row):
+            if tile.owner and tile.owner.id == player_id:
+                my_tiles.append((x, y))
+                tile_map[(x, y)] = tile
+    if not my_tiles:
+        return {}
+    # 2. 决策开始时高亮首都
+    cx, cy = player.capital_pos
+    current = (cx, cy)
+    actions = dict(initial_actions)
+    # 3. 主循环
+    while True:
+        renderer.draw(game_state, actions)
+        renderer.highlight_tile(current[0], current[1], flip_display=True)
+        pygame.display.flip()
+        finished = False
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                renderer.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                # 移动高亮框（只允许到己方格子）
+                dx, dy = 0, 0
+                if event.key == pygame.K_UP:
+                    dy = -1
+                elif event.key == pygame.K_DOWN:
+                    dy = 1
+                elif event.key == pygame.K_LEFT:
+                    dx = -1
+                elif event.key == pygame.K_RIGHT:
+                    dx = 1
+                if dx != 0 or dy != 0:
+                    nx, ny = current[0] + dx, current[1] + dy
+                    if (nx, ny) in tile_map:
+                        current = (nx, ny)
+                    continue
+                # 设置当前格子的指令（wsad/space）
+                if event.key == pygame.K_w:
+                    actions[f"{current[0]},{current[1]}"] = "up"
+                elif event.key == pygame.K_s:
+                    actions[f"{current[0]},{current[1]}"] = "down"
+                elif event.key == pygame.K_a:
+                    actions[f"{current[0]},{current[1]}"] = "left"
+                elif event.key == pygame.K_d:
+                    actions[f"{current[0]},{current[1]}"] = "right"
+                elif event.key == pygame.K_SPACE:
+                    actions[f"{current[0]},{current[1]}"] = "stay"
+                elif event.key == pygame.K_RETURN:
+                    finished = True
+        if finished:
+            break
+    # 4. 处理孤岛地块（无法从首都到达的格子）
+    visited = set()
+    queue = [player.capital_pos]
+    while queue:
+        x, y = queue.pop(0)
+        if (x, y) in visited:
+            continue
+        visited.add((x, y))
+        for dx, dy in [(-1,0),(1,0),(0,-1),(0,1)]:
+            nx, ny = x+dx, y+dy
+            if (nx, ny) in tile_map and (nx, ny) not in visited:
+                queue.append((nx, ny))
+    unreachable = [pos for pos in my_tiles if pos not in visited]
+    directions = ["up", "down", "left", "right", "stay"]
+    for x, y in unreachable:
+        if f"{x},{y}" not in actions or actions[f"{x},{y}"] == initial_actions.get(f"{x},{y}", "stay"):
+            actions[f"{x},{y}"] = random.choice(directions)
+    return actions
+
+
 def get_detailed_actions(renderer: Renderer, game_state: GameState, player_id: int, initial_actions: dict):
     """
     Handles the classic, detailed, tile-by-tile action input from a human player.
@@ -132,6 +232,7 @@ def get_human_actions(renderer: Renderer, game_state: GameState, player_id: int,
 
     # 3. Determine input mode
     input_mode = HUMAN_INPUT_MODE if HUMAN_INPUT_MODE else mode
+    print(f"Using input mode: {input_mode} ")
 
     if num_tiles < 5:
         return get_detailed_actions(renderer, game_state, player_id, default_actions)
@@ -141,10 +242,7 @@ def get_human_actions(renderer: Renderer, game_state: GameState, player_id: int,
     elif input_mode == 'uniform':
         return get_uniform_direction_action(renderer, game_state, player_id, default_actions)
     elif input_mode == 'FREE_ROAM':
-        # Placeholder for FREE_ROAM input logic
-        print("FREE_ROAM input mode is under development.")
-        # For now, fallback to detailed
-        return get_detailed_actions(renderer, game_state, player_id, default_actions)
+        return get_free_roam_actions(renderer, game_state, player_id, default_actions)
     else:
         print(f"Unknown input mode: {input_mode}. Defaulting to detailed mode.")
         return get_detailed_actions(renderer, game_state, player_id, default_actions)
