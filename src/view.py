@@ -135,11 +135,56 @@ class Renderer:
                     self.screen.blit(text_surface, text_rect)
 
     def _draw_ui(self, game_state: GameState):
-        """Draws UI elements like the current turn."""
+        """Draws UI elements like the current turn and player stats."""
+        # Turn counter
         turn_text = f"Turn: {game_state.current_turn}"
         text_surface = self.ui_font.render(turn_text, True, (0, 0, 0))
         text_rect = text_surface.get_rect(topleft=(10, 10))
         self.screen.blit(text_surface, text_rect)
+
+        # Player stats
+        stats_y_start = SCREEN_HEIGHT - 150
+        line_height = 25
+        
+        # Pre-calculate stats to avoid iterating multiple times
+        player_stats = []
+        for player in game_state.players:
+            if not player.is_defeated:
+                territory_size = 0
+                total_armies = 0
+                for row in game_state.map:
+                    for tile in row:
+                        if tile.owner and tile.owner.id == player.id:
+                            territory_size += 1
+                            total_armies += tile.get_total_armies()
+                player_stats.append({
+                    "name": player.name,
+                    "color": player.color,
+                    "territory": territory_size,
+                    "armies": total_armies
+                })
+        
+        # Header
+        header_text = "Player | Territory | Armies"
+        header_surface = self.font.render(header_text, True, (50, 50, 50))
+        header_rect = header_surface.get_rect(topright=(SCREEN_WIDTH - 10, stats_y_start))
+        self.screen.blit(header_surface, header_rect)
+
+        # Display stats for each active player
+        for i, stats in enumerate(player_stats):
+            y_pos = stats_y_start + (i + 1) * line_height
+            
+            # Player Name
+            name_text = f"{stats['name']}"
+            name_surface = self.font.render(name_text, True, stats['color'])
+            name_rect = name_surface.get_rect(topright=(SCREEN_WIDTH - 130, y_pos))
+            self.screen.blit(name_surface, name_rect)
+
+            # Player Stats
+            stats_text = f"| {stats['territory']:>9} | {stats['armies']:>6}"
+            stats_surface = self.font.render(stats_text, True, (0, 0, 0))
+            stats_rect = stats_surface.get_rect(topleft=name_rect.topright)
+            self.screen.blit(stats_surface, stats_rect)
 
     def quit(self):
         """Quits pygame."""

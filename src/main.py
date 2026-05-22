@@ -41,15 +41,18 @@ def main():
         all_actions = {}
         for player in engine.game_state.players:
             if not player.is_defeated:
+                actions = {}
                 if isinstance(player.agent, HumanAgent):
                     # Special handling for human player
                     print(f"Waiting for Player {player.id}'s input...")
-                    human_actions = get_human_actions(renderer, engine.game_state, player.id, mode = 'detailed') # mode can be determined inside get_human_actions
+                    actions = get_human_actions(renderer, engine.game_state, player.id, mode = 'detailed') # mode can be determined inside get_human_actions
                     print(f"Player {player.id}'s input received.")
-                    all_actions[player.id] = human_actions
                 else:
                     # AI players
-                    all_actions[player.id] = player.agent.get_actions(engine.game_state, player.id)
+                    actions = player.agent.get_actions(engine.game_state, player.id)
+                
+                all_actions[player.id] = actions
+                player.last_actions = actions # Ensure last_actions is updated
 
         # --- Execution Phase ---
         # This part is now manually controlled instead of being inside engine.run_turn()
