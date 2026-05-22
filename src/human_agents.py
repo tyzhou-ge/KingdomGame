@@ -45,9 +45,7 @@ def get_free_roam_actions(renderer: Renderer, game_state: GameState, player_id: 
     actions = dict(initial_actions)
     # 3. 主循环
     while True:
-        renderer.draw(game_state, actions)
-        renderer.highlight_tile(current[0], current[1], flip_display=True)
-        pygame.display.flip()
+        need_render = False
         finished = False
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -68,20 +66,30 @@ def get_free_roam_actions(renderer: Renderer, game_state: GameState, player_id: 
                     nx, ny = current[0] + dx, current[1] + dy
                     if (nx, ny) in tile_map:
                         current = (nx, ny)
+                        need_render = True
                     continue
                 # 设置当前格子的指令（wsad/space）
                 if event.key == pygame.K_w:
                     actions[f"{current[0]},{current[1]}"] = "up"
+                    need_render = True
                 elif event.key == pygame.K_s:
                     actions[f"{current[0]},{current[1]}"] = "down"
+                    need_render = True
                 elif event.key == pygame.K_a:
                     actions[f"{current[0]},{current[1]}"] = "left"
+                    need_render = True
                 elif event.key == pygame.K_d:
                     actions[f"{current[0]},{current[1]}"] = "right"
+                    need_render = True
                 elif event.key == pygame.K_SPACE:
                     actions[f"{current[0]},{current[1]}"] = "stay"
+                    need_render = True
                 elif event.key == pygame.K_RETURN:
                     finished = True
+        if need_render or finished:
+            renderer.draw(game_state, actions)
+            renderer.highlight_tile(current[0], current[1], flip_display=True)
+            pygame.display.flip()
         if finished:
             break
     # 4. 处理孤岛地块（无法从首都到达的格子）
