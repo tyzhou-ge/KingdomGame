@@ -2,7 +2,7 @@ import pygame
 import sys
 from engine import GameEngine
 from models import Player
-from agents import RandomAgent, HumanAgent, GreedyAgent, DefensiveAgent
+from agents import RandomAgent, HumanAgent, GreedyAgent, DefensiveAgent, StrategicAgent
 from config import PLAYER_COLORS, NUM_PLAYERS
 from view import Renderer
 from human_agents import get_human_actions
@@ -14,14 +14,18 @@ def main():
     players = []
     # Player 1 is Human
     players.append(Player(player_id=1, name="Human", color=PLAYER_COLORS[1], agent=HumanAgent()))
-    players.append(Player(player_id=2, name="Human", color=PLAYER_COLORS[2], agent=HumanAgent()))
-    # Other players are AIs
-    agent_types = [RandomAgent, GreedyAgent, DefensiveAgent, RandomAgent]
-    for i in range(3, NUM_PLAYERS + 1):
+    # players.append(Player(player_id=2, name="Human", color=PLAYER_COLORS[2], agent=HumanAgent()))
+    # # Other players are AIs
+    # agent_types = [StrategicAgent, GreedyAgent, DefensiveAgent, RandomAgent]
+    # for i in range(3, NUM_PLAYERS + 1):
+    #     player_name = f"AI Player {i}"
+    #     player_color = PLAYER_COLORS[i]
+    #     agent = StrategicAgent() if i==3 else RandomAgent()
+    #     players.append(Player(player_id=i, name=player_name, color=player_color, agent=agent))
+    for i in range(2, NUM_PLAYERS + 1):
         player_name = f"AI Player {i}"
         player_color = PLAYER_COLORS[i]
-        # agent = agent_types[i-3]()
-        agent = RandomAgent() # For testing, all AIs are random
+        agent = StrategicAgent() if i==4 else RandomAgent()
         players.append(Player(player_id=i, name=player_name, color=player_color, agent=agent))
 
     # Initialize game components

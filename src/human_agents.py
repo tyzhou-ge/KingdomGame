@@ -107,7 +107,9 @@ def get_uniform_direction_action(renderer: Renderer, game_state: GameState, play
 def get_human_actions(renderer: Renderer, game_state: GameState, player_id: int, mode: str):
     """
     Calculates default actions and then calls the appropriate input mode function.
+    Now supports HUMAN_INPUT_MODE from config.py, including FREE_ROAM mode.
     """
+    from config import HUMAN_INPUT_MODE
     player = next((p for p in game_state.players if p.id == player_id), None)
     if not player:
         return {}
@@ -122,20 +124,27 @@ def get_human_actions(renderer: Renderer, game_state: GameState, player_id: int,
                 coord_str = f"{x},{y}"
                 if coord_str not in default_actions:
                     default_actions[coord_str] = "stay"
-    
+
     # 2. Show the correct default actions on screen once before asking for input
     print(f"####### rendering with default actions: {default_actions} #######")
     renderer.draw(game_state, default_actions)
     pygame.display.flip()
 
-    # 3. Call the specific input handler, passing the calculated defaults to it
+    # 3. Determine input mode
+    input_mode = HUMAN_INPUT_MODE if HUMAN_INPUT_MODE else mode
+
     if num_tiles < 5:
         return get_detailed_actions(renderer, game_state, player_id, default_actions)
 
-    if mode == 'detailed':
+    if input_mode == 'detailed':
         return get_detailed_actions(renderer, game_state, player_id, default_actions)
-    elif mode == 'uniform':
+    elif input_mode == 'uniform':
         return get_uniform_direction_action(renderer, game_state, player_id, default_actions)
+    elif input_mode == 'FREE_ROAM':
+        # Placeholder for FREE_ROAM input logic
+        print("FREE_ROAM input mode is under development.")
+        # For now, fallback to detailed
+        return get_detailed_actions(renderer, game_state, player_id, default_actions)
     else:
-        print(f"Unknown input mode: {mode}. Defaulting to detailed mode.")
+        print(f"Unknown input mode: {input_mode}. Defaulting to detailed mode.")
         return get_detailed_actions(renderer, game_state, player_id, default_actions)
