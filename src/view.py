@@ -14,11 +14,13 @@ class Renderer:
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         self.font = pygame.font.SysFont(None, 24)
         self.ui_font = pygame.font.SysFont(None, 36)
-        
-        # Calculate grid offset to center it
+
+        # 增加右侧padding，避免地图与右侧统计信息重叠
+        self.RIGHT_PADDING = 220  # 可根据实际UI宽度调整
         self.grid_width = MAP_WIDTH * CELL_SIZE
         self.grid_height = MAP_HEIGHT * CELL_SIZE
-        self.offset_x = (SCREEN_WIDTH - self.grid_width) // 2
+        # offset_x只保证左侧和上方居中，右侧留出统计信息空间
+        self.offset_x = max((SCREEN_WIDTH - self.RIGHT_PADDING - self.grid_width) // 2, 10)
         self.offset_y = (SCREEN_HEIGHT - self.grid_height) // 2
 
     def draw(self, game_state: GameState, current_actions: dict = None, fog_of_war_player_id: int = None):
