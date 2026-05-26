@@ -21,14 +21,14 @@ class Renderer:
         self.offset_x = (SCREEN_WIDTH - self.grid_width) // 2
         self.offset_y = (SCREEN_HEIGHT - self.grid_height) // 2
 
-    def draw(self, game_state: GameState, current_actions: dict = None):
-        """Draws the entire game state to the screen."""
+    def draw(self, game_state: GameState, current_actions: dict = None, fog_of_war_player_id: int = None):
+        """Draws the entire game state to the screen. fog_of_war_player_id: 若指定则隐藏其他玩家的格子深浅和军队数。"""
         self.screen.fill(BACKGROUND_COLOR)
-        self._draw_tiles(game_state)
+        self._draw_tiles(game_state, fog_of_war_player_id)
         self._draw_grid()
-        self._draw_armies(game_state)
+        self._draw_armies(game_state, fog_of_war_player_id)
         if current_actions:
-            self._draw_action_arrows(current_actions)
+            self._draw_action_arrows(current_actions, game_state)
         self._draw_ui(game_state)
         pygame.display.flip()
 
@@ -43,8 +43,8 @@ class Renderer:
             end_pos = (self.offset_x + self.grid_width, self.offset_y + y * CELL_SIZE)
             pygame.draw.line(self.screen, GRID_COLOR, start_pos, end_pos)
 
-    def _draw_tiles(self, game_state: GameState):
-        """Draws the colored tiles and capital borders."""
+    def _draw_tiles(self, game_state: GameState, fog_of_war_player_id: int = None):
+        """Draws the colored tiles and capital borders. 支持战争迷雾。"""
         for y, row in enumerate(game_state.map):
             for x, tile in enumerate(row):
                 rect = pygame.Rect(
@@ -54,52 +54,50 @@ class Renderer:
                     CELL_SIZE
                 )
                 if tile.owner:
-                    # Color depth based on army age
-                    total_armies = tile.get_total_armies()
-                    if total_armies > 0:
-                        avg_age = sum(age * count for age, count in enumerate(tile.armies)) / total_armies
-                        factor = 1 - (avg_age / BASE_LIFESPAN) * 0.6
-                        color = tuple(max(0, min(255, int(c * factor))) for c in tile.owner.color)
-                        pygame.draw.rect(self.screen, color, rect)
+                    show_detail = (fog_of_war_player_id is None) or (tile.owner.id == fog_of_war_player_id)
+                    if show_detail:
+                        total_armies = tile.get_total_armies()
+                        if total_armies > 0:
+                            avg_age = sum(age * count for age, count in enumerate(tile.armies)) / total_armies
+                            factor = 1 - (avg_age / BASE_LIFESPAN) * 0.6
+                            color = tuple(max(0, min(255, int(c * factor))) for c in tile.owner.color)
+                            pygame.draw.rect(self.screen, color, rect)
+                        else:
+                            pygame.draw.rect(self.screen, tile.owner.color, rect)
                     else:
+                        # 只显示领地颜色，不显示深浅
                         pygame.draw.rect(self.screen, tile.owner.color, rect)
-
                 if tile.is_capital:
-                    pygame.draw.rect(self.screen, CAPITAL_BORDER_COLOR, rect, 3) # 3 is border width
-                
-                # Highlight large battles
+                    pygame.draw.rect(self.screen, CAPITAL_BORDER_COLOR, rect, 3)
                 if tile.last_turn_battle_size > LARGE_BATTLE_THRESHOLD:
-                    pygame.draw.rect(self.screen, (255, 0, 0), rect, 2) # Red border for large battles
+                    pygame.draw.rect(self.screen, (255, 0, 0), rect, 2)
 
-    def _draw_action_arrows(self, all_actions: dict):
-        """Draws arrows on tiles to indicate the planned actions."""
+    def _draw_action_arrows(self, all_actions: dict, game_state: GameState):
+        """Draws arrows on tiles to indicate the planned actions. 箭头颜色与领地色相关。"""
         actions_to_draw = {}
-        # The dictionary can be nested {player_id: actions} or flat {coord: dir}.
-        # We flatten it to handle both cases.
         first_key = next(iter(all_actions), None)
         if isinstance(first_key, int):
-            # Nested dict: {player_id: {coord: dir}}
             for player_actions in all_actions.values():
                 actions_to_draw.update(player_actions)
         else:
-            # Flat dict: {coord: dir}
             actions_to_draw = all_actions
 
         for coord_str, direction in actions_to_draw.items():
-            if not isinstance(coord_str, str): continue # Skip if key is not a string coordinate
+            if not isinstance(coord_str, str): continue
             x, y = map(int, coord_str.split(','))
+            tile = game_state.map[y][x]
+            color = (0, 0, 0)
+            if tile.owner:
+                # 箭头颜色为领地色加深
+                base = tile.owner.color
+                color = tuple(min(255, int(c * 0.7 + 80)) for c in base)
             center_x = self.offset_x + x * CELL_SIZE + CELL_SIZE // 2
             center_y = self.offset_y + y * CELL_SIZE + CELL_SIZE // 2
-            
             if direction == 'stay':
-                # Draw a small circle for 'stay'
-                pygame.draw.circle(self.screen, (0,0,0), (center_x, center_y), 5)
+                pygame.draw.circle(self.screen, color, (center_x, center_y), 5)
                 continue
-
-            # Points for an arrow triangle
             arrow_length = CELL_SIZE // 4
             arrow_width = CELL_SIZE // 6
-            
             if direction == 'up':
                 p1 = (center_x, center_y - arrow_length)
                 p2 = (center_x - arrow_width, center_y)
@@ -118,21 +116,26 @@ class Renderer:
                 p3 = (center_x, center_y + arrow_width)
             else:
                 continue
-                
-            pygame.draw.polygon(self.screen, (0, 0, 0), [p1, p2, p3]) # Black arrow
+            pygame.draw.polygon(self.screen, color, [p1, p2, p3])
 
-    def _draw_armies(self, game_state: GameState):
-        """Draws the army counts on each tile."""
+    def _draw_armies(self, game_state: GameState, fog_of_war_player_id: int = None):
+        """Draws the army counts on each tile. 数字右下角且颜色与领地色相关，战争迷雾支持。"""
         for y, row in enumerate(game_state.map):
             for x, tile in enumerate(row):
-                total_armies = tile.get_total_armies()
-                if total_armies > 0:
-                    text_surface = self.font.render(str(total_armies), True, (0, 0, 0)) # Black text
-                    text_rect = text_surface.get_rect(center=(
-                        self.offset_x + x * CELL_SIZE + CELL_SIZE // 2,
-                        self.offset_y + y * CELL_SIZE + CELL_SIZE // 2
-                    ))
-                    self.screen.blit(text_surface, text_rect)
+                if tile.owner:
+                    show_detail = (fog_of_war_player_id is None) or (tile.owner.id == fog_of_war_player_id)
+                    total_armies = tile.get_total_armies()
+                    if total_armies > 0 and show_detail:
+                        # 数字颜色为领地色加深
+                        base = tile.owner.color
+                        color = tuple(min(255, int(c * 0.7 + 80)) for c in base)
+                        text_surface = self.font.render(str(total_armies), True, color)
+                        # 右下角
+                        text_rect = text_surface.get_rect(bottomright=(
+                            self.offset_x + (x + 1) * CELL_SIZE - 4,
+                            self.offset_y + (y + 1) * CELL_SIZE - 2
+                        ))
+                        self.screen.blit(text_surface, text_rect)
 
     def _draw_ui(self, game_state: GameState):
         """Draws UI elements like the current turn and player stats."""

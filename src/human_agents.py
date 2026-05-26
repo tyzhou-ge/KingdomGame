@@ -44,30 +44,25 @@ def get_free_roam_actions(renderer: Renderer, game_state: GameState, player_id: 
     current = (cx, cy)
     actions = dict(initial_actions)
     # 3. 主循环
+    # 新增：方向键长按/短按状态追踪
+    key_states = {pygame.K_UP: None, pygame.K_DOWN: None, pygame.K_LEFT: None, pygame.K_RIGHT: None}
+    key_last_move = {k: 0 for k in key_states}
+    MOVE_INTERVAL = 200  # ms
+    clock = pygame.time.Clock()
     while True:
         need_render = False
         finished = False
+        now = pygame.time.get_ticks()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 renderer.quit()
                 sys.exit()
             if event.type == pygame.KEYDOWN:
-                # 移动高亮框（只允许到己方格子）
-                dx, dy = 0, 0
-                if event.key == pygame.K_UP:
-                    dy = -1
-                elif event.key == pygame.K_DOWN:
-                    dy = 1
-                elif event.key == pygame.K_LEFT:
-                    dx = -1
-                elif event.key == pygame.K_RIGHT:
-                    dx = 1
-                if dx != 0 or dy != 0:
-                    nx, ny = current[0] + dx, current[1] + dy
-                    if (nx, ny) in tile_map:
-                        current = (nx, ny)
-                        need_render = True
-                    continue
+                # 记录按下时间
+                if event.key in key_states:
+                    if key_states[event.key] is None:
+                        key_states[event.key] = now
+                        key_last_move[event.key] = now
                 # 设置当前格子的指令（wsad/space）
                 if event.key == pygame.K_w:
                     actions[f"{current[0]},{current[1]}"] = "up"
@@ -86,8 +81,47 @@ def get_free_roam_actions(renderer: Renderer, game_state: GameState, player_id: 
                     need_render = True
                 elif event.key == pygame.K_RETURN:
                     finished = True
+            elif event.type == pygame.KEYUP:
+                if event.key in key_states:
+                    # 松开时判断短按
+                    if key_states[event.key] is not None:
+                        duration = now - key_states[event.key]
+                        if duration < MOVE_INTERVAL:
+                            dx, dy = 0, 0
+                            if event.key == pygame.K_UP:
+                                dy = -1
+                            elif event.key == pygame.K_DOWN:
+                                dy = 1
+                            elif event.key == pygame.K_LEFT:
+                                dx = -1
+                            elif event.key == pygame.K_RIGHT:
+                                dx = 1
+                            nx, ny = current[0] + dx, current[1] + dy
+                            if (nx, ny) in tile_map:
+                                current = (nx, ny)
+                                need_render = True
+                        key_states[event.key] = None
+        # 长按逻辑
+        for k in key_states:
+            if key_states[k] is not None:
+                if now - key_states[k] >= MOVE_INTERVAL:
+                    if now - key_last_move[k] >= MOVE_INTERVAL:
+                        dx, dy = 0, 0
+                        if k == pygame.K_UP:
+                            dy = -1
+                        elif k == pygame.K_DOWN:
+                            dy = 1
+                        elif k == pygame.K_LEFT:
+                            dx = -1
+                        elif k == pygame.K_RIGHT:
+                            dx = 1
+                        nx, ny = current[0] + dx, current[1] + dy
+                        if (nx, ny) in tile_map:
+                            current = (nx, ny)
+                            need_render = True
+                            key_last_move[k] = now
         if need_render or finished:
-            renderer.draw(game_state, actions)
+            renderer.draw(game_state, actions, fog_of_war_player_id=player_id)
             renderer.highlight_tile(current[0], current[1], flip_display=True)
             pygame.display.flip()
         if finished:
